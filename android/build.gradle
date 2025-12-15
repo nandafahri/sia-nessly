@@ -1,0 +1,41 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+plugins {
+    // Tidak perlu Kotlin di sini jika sudah didefinisikan di settings.gradle
+}
+
+ext {
+    // Versi SDK
+    compileSdkVersion = 36
+    targetSdkVersion = 36
+    minSdkVersion = 23    // WAJIB untuk mobile_scanner
+
+    // Kotlin (untuk project Flutter)
+    kotlin_version = "1.9.22"
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.buildDir = "../build"
+
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+
+subprojects {
+    project.evaluationDependsOn(":app")
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
