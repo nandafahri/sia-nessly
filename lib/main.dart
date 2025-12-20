@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'controllers/home_controller.dart';
 import 'pages/splashscreen_page.dart';
 
 void main() async {
@@ -8,6 +9,9 @@ void main() async {
 
   final prefs = await SharedPreferences.getInstance();
   final token = prefs.getString("auth_token");
+
+  // 🔥 DAFTARKAN HOME CONTROLLER SEKALI (GLOBAL)
+  Get.put(HomeController(), permanent: true);
 
   runApp(MyApp(isLoggedIn: token != null));
 }

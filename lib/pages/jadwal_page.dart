@@ -4,37 +4,79 @@ import '../controllers/jadwal_controller.dart';
 import '../models/jadwal_model.dart';
 
 const Color kPrimaryColor = Color(0xFF42A5F5);
-const Color kBackgroundColor = Colors.black; // FULL HITAM
-const Color kCardColor =
-    Color(0xFF161616); // warna card sedikit lebih terang agar kontras
+const Color kBackgroundColor = Colors.black;
+const Color kCardColor = Color(0xFF161616);
 
-class JadwalPage extends StatelessWidget {
+class JadwalPage extends StatefulWidget {
   final bool showBackButton;
 
-  JadwalPage({super.key, this.showBackButton = true});
+  const JadwalPage({super.key, this.showBackButton = true});
 
-  final JadwalController controller = Get.put(JadwalController());
+  @override
+  State<JadwalPage> createState() => _JadwalPageState();
+}
 
+class _JadwalPageState extends State<JadwalPage> {
+  final JadwalController c = Get.put(JadwalController());
+
+  @override
+  void initState() {
+    super.initState();
+
+    /// 🔥 RESET KE HARI INI SETIAP MASUK HALAMAN
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      c.onReady(); // ← PAKSA PANGGIL RESET
+    });
+  }
+
+  // ================= DAY SELECTOR =================
+  Widget _buildDaySelector() {
+    return SizedBox(
+      height: 46,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: c.days.length,
+        itemBuilder: (_, index) {
+          final day = c.days[index];
+          final isActive = c.selectedDay.value == day;
+
+          return GestureDetector(
+            onTap: () => c.selectedDay.value = day,
+            child: Container(
+              margin: const EdgeInsets.only(right: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isActive ? kPrimaryColor : Colors.white10,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                day,
+                style: TextStyle(
+                  color: isActive ? Colors.black : Colors.white70,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ================= JADWAL ITEM =================
   Widget _buildJadwalItem(JadwalModel item) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(18),
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: kCardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.25),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Hari & Jam
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -42,48 +84,33 @@ class JadwalPage extends StatelessWidget {
                 item.hari,
                 style: const TextStyle(
                   color: kPrimaryColor,
-                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              Row(
-                children: [
-                  const Icon(Icons.schedule, size: 18, color: Colors.white70),
-                  const SizedBox(width: 6),
-                  Text(
-                    "${item.jamMulai} - ${item.jamSelesai}",
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
+              Text(
+                "${item.jamMulai} - ${item.jamSelesai}",
+                style: const TextStyle(color: Colors.white70),
               ),
             ],
           ),
-
-          const SizedBox(height: 12),
-
-          // Mapel
+          const SizedBox(height: 10),
           Text(
             item.namaMapel,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
           ),
-
-          const SizedBox(height: 8),
-
           if (item.qrActive == true) ...[
+            const SizedBox(height: 8),
             Row(
               children: const [
-                Icon(Icons.qr_code, color: Colors.greenAccent, size: 20),
+                Icon(Icons.qr_code, color: Colors.greenAccent, size: 18),
                 SizedBox(width: 6),
                 Text(
                   "QR Aktif",
-                  style: TextStyle(color: Colors.greenAccent, fontSize: 14),
+                  style: TextStyle(color: Colors.greenAccent),
                 ),
               ],
             ),
@@ -93,6 +120,7 @@ class JadwalPage extends StatelessWidget {
     );
   }
 
+  // ================= MAIN UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -100,41 +128,30 @@ class JadwalPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.black,
         elevation: 0,
-        toolbarHeight: 62, // Sedikit lebih tinggi agar nyaman
         automaticallyImplyLeading: false,
         titleSpacing: 0,
         title: Row(
           children: [
-            // BACK BUTTON
-            Padding(
-              padding: const EdgeInsets.only(left: 12),
-              child: GestureDetector(
-                onTap: () => Get.back(),
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: Colors.white10,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white24,
-                      width: 1,
+            if (widget.showBackButton)
+              Padding(
+                padding: const EdgeInsets.only(left: 12),
+                child: GestureDetector(
+                  onTap: () => Get.back(),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.white10,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ),
-                  child: const Center(
-                    child: Icon(
+                    child: const Icon(
                       Icons.arrow_back_rounded,
                       color: Colors.white,
-                      size: 20,
                     ),
                   ),
                 ),
               ),
-            ),
-
             const SizedBox(width: 16),
-
-            // TITLE
             const Text(
               "Jadwal",
               style: TextStyle(
@@ -149,35 +166,33 @@ class JadwalPage extends StatelessWidget {
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Obx(() {
-          if (controller.kelasId.value.isEmpty) {
+          if (c.isLoading.value) {
             return const Center(
-              child: Text(
-                "ID Kelas tidak ditemukan.",
-                style: TextStyle(color: Colors.redAccent),
+              child: CircularProgressIndicator(
+                color: kPrimaryColor,
               ),
             );
           }
 
-          if (controller.isLoading.value) {
-            return const Center(
-              child: CircularProgressIndicator(color: kPrimaryColor),
-            );
-          }
-
-          if (controller.jadwalList.isEmpty) {
-            return const Center(
-              child: Text(
-                "Tidak ada jadwal ditemukan.",
-                style: TextStyle(color: Colors.white70),
+          return Column(
+            children: [
+              _buildDaySelector(),
+              const SizedBox(height: 20),
+              Expanded(
+                child: c.filteredJadwal.isEmpty
+                    ? const Center(
+                        child: Text(
+                          "Tidak ada jadwal",
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: c.filteredJadwal.length,
+                        itemBuilder: (_, i) =>
+                            _buildJadwalItem(c.filteredJadwal[i]),
+                      ),
               ),
-            );
-          }
-
-          return ListView.builder(
-            itemCount: controller.jadwalList.length,
-            itemBuilder: (context, index) {
-              return _buildJadwalItem(controller.jadwalList[index]);
-            },
+            ],
           );
         }),
       ),

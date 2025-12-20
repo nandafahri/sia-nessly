@@ -1,44 +1,98 @@
+import 'dart:async';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sia_nessly/services/api_services.dart';
+import 'package:flutter/foundation.dart';
 import '../models/nilai_model.dart';
+import '../models/nilai_akhir_model.dart';
+import '../services/api_services.dart';
 
 class NilaiController extends GetxController {
-  var isLoading = false.obs;
-  var errorMessage = "".obs;
+  var isLoading = false.obs; // Tidak digunakan untuk UI lagi
+  var errorMessage = ''.obs;
 
-  var allNilai = <NilaiModel>[].obs;
-  var selectedSemester = "Genap".obs;
+  var nilai = <NilaiModel>[].obs;
+  var nilaiAkhir = <NilaiAkhirModel>[].obs;
+  var selectedSemester = "Ganjil".obs;
+
+  Timer? _refreshTimer;
 
   @override
   void onInit() {
     super.onInit();
-    loadNilai();
+    // Data sudah di-load dari Home/Login, jadi tidak load lagi di sini
+    // Jika belum ada data, baru load
+    if (nilai.isEmpty && nilaiAkhir.isEmpty) {
+      loadData();
+    }
+    startAutoRefresh(); // Langsung mulai refresh realtime
   }
 
-  Future<void> loadNilai() async {
-    try {
-      isLoading.value = true;
-      errorMessage.value = "";
+  @override
+  void onClose() {
+    _refreshTimer?.cancel();
+    super.onClose();
+  }
 
+  Future<void> loadData() async {
+    try {
+      errorMessage.value = "";
       final prefs = await SharedPreferences.getInstance();
       final siswaId = prefs.getInt("id");
 
       if (siswaId == null) {
-        errorMessage.value = "ID siswa tidak ditemukan, silakan login ulang.";
+        errorMessage.value = "Siswa belum login";
         return;
       }
 
-      final List<dynamic> data = await ApiService.getNilai(siswaId);
+      final nilaiData = await ApiService.getNilai(siswaId);
+      nilai.assignAll(nilaiData.map((e) => NilaiModel.fromJson(e)).toList());
 
-      allNilai.value = data.map((json) => NilaiModel.fromJson(json)).toList();
-    } catch (e) {
-      errorMessage.value = "Gagal memuat nilai: $e";
-    } finally {
-      isLoading.value = false;
+      final akhirData = await ApiService.getNilaiAkhir(siswaId);
+      nilaiAkhir.assignAll(akhirData.map((e) => NilaiAkhirModel.fromJson(e)).toList());
+
+    } catch (e, s) {
+      errorMessage.value = "Gagal memuat data";
+      debugPrint("❌ ERROR loadData: $e");
+      debugPrintStack(stackTrace: s);
     }
   }
 
+  // Refresh lebih cepat: setiap 8 detik
+  void startAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 8), (timer) {
+      loadData(); // Update diam-diam
+    });
+  }
+
+  void stopAutoRefresh() {
+    _refreshTimer?.cancel();
+  }
+
+  void changeSemester(String semester) {
+    selectedSemester.value = semester;
+    // Tidak perlu loadData lagi karena data sudah ada dan akan di-refresh otomatis
+  }
+
   List<NilaiModel> get nilaiFiltered =>
-      allNilai.where((n) => n.semester == selectedSemester.value).toList();
+      nilai.where((n) => n.semester.toLowerCase() == selectedSemester.value.toLowerCase()).toList();
+
+  List<NilaiAkhirModel> get nilaiAkhirFiltered =>
+      nilaiAkhir.where((n) => n.semester.toLowerCase() == selectedSemester.value.toLowerCase()).toList();
+
+  Map<int, List<NilaiModel>> get nilaiGroupedByMapel {
+    final map = <int, List<NilaiModel>>{};
+    for (var n in nilaiFiltered) {
+      map.putIfAbsent(n.mapelId, () => []).add(n);
+    }
+    return map;
+  }
+
+  NilaiAkhirModel? getNilaiAkhirByMapel(int mapelId) {
+    try {
+      return nilaiAkhirFiltered.firstWhere((a) => a.mapelId == mapelId);
+    } catch (_) {
+      return null;
+    }
+  }
 }

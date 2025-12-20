@@ -27,11 +27,8 @@ class JadwalModel {
       hari: json["hari"] ?? "-",
       jamMulai: json["jam_mulai"] ?? "-",
       jamSelesai: json["jam_selesai"] ?? "-",
-
-      // SAFE ACCESS
-      namaMapel: json["mapel"]?["nama"] ?? "Mata Pelajaran Tidak Dikenal",
+      namaMapel: json["mapel"]?["nama"] ?? "-",
       namaKelas: json["kelas"]?["nama"] ?? "-",
-
       qrActive: json["qr_active"] ?? false,
       qrUrl: json["qr_url"],
       qrExpiredAt: json["qr_expired_at"],

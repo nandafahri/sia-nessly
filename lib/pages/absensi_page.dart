@@ -1,73 +1,36 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Untuk SystemUiOverlayStyle
 import 'package:get/get.dart';
-// Asumsikan controller dan model ada di path ini
 import '../controllers/absensi_controller.dart';
-// Asumsikan model AbsensiResponse dan Riwayat di-import dari sini
-// import '../models/absensi_model.dart';
 
 class AbsensiPage extends StatelessWidget {
   final String nisn;
-
-  // Constructor
   AbsensiPage({super.key, required this.nisn});
 
-  // Inisialisasi Controller
   final AbsensiController controller = Get.put(AbsensiController());
 
-  final Color kPrimaryColor = Color(0xFF42A5F5);
-  final Color kBackgroundColor = Colors.black; // FULL HITAM
-  final Color kCardColor =
-      Color(0xFF161616); // warna card sedikit lebih terang agar kontras
-
-  // Helper untuk mendapatkan ikon berdasarkan status
-  IconData _getStatusIcon(String status) {
-    switch (status.toLowerCase()) {
-      case "hadir":
-        return Icons.check_circle;
-      case "izin":
-        return Icons.info;
-      case "alpha":
-        return Icons.cancel;
-      default:
-        return Icons.help_outline;
-    }
-  }
-
-  // Helper untuk mendapatkan warna berdasarkan status
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case "hadir":
-        return Colors.greenAccent;
-      case "izin":
-        return Colors.amber;
-      case "alpha":
-        return Colors.redAccent;
-      default:
-        return Colors.grey;
-    }
-  }
+  final Color bg = Colors.black;
+  final Color card = const Color(0xFF161616);
 
   @override
   Widget build(BuildContext context) {
-    // Panggil load data setelah frame pertama selesai di-render
+    // LOAD + REALTIME
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!controller.isLoading.value) {
+      if (controller.absensiResponse.value == null) {
         controller.loadAbsensi(nisn);
+        controller.startRealtime(nisn); // 🔥 REALTIME AKTIF
       }
     });
 
     return Scaffold(
-      backgroundColor: kBackgroundColor,
+      backgroundColor: bg,
       appBar: AppBar(
         backgroundColor: Colors.black,
         elevation: 0,
-        toolbarHeight: 62, // Sedikit lebih tinggi agar nyaman
+        toolbarHeight: 62,
         automaticallyImplyLeading: false,
         titleSpacing: 0,
         title: Row(
           children: [
-            // BACK BUTTON
             Padding(
               padding: const EdgeInsets.only(left: 12),
               child: GestureDetector(
@@ -78,25 +41,17 @@ class AbsensiPage extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.white10,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white24,
-                      width: 1,
-                    ),
+                    border: Border.all(color: Colors.white24),
                   ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.arrow_back_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
+                  child: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: Colors.white,
+                    size: 20,
                   ),
                 ),
               ),
             ),
-
             const SizedBox(width: 16),
-
-            // TITLE
             const Text(
               "Riwayat Absensi",
               style: TextStyle(
@@ -109,145 +64,172 @@ class AbsensiPage extends StatelessWidget {
         ),
       ),
       body: Obx(() {
+        if (controller.isLoading.value) {
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.white),
+          );
+        }
+
         if (controller.errorMessage.isNotEmpty) {
           return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                "Error: ${controller.errorMessage.value}",
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 16),
-              ),
+            child: Text(
+              controller.errorMessage.value,
+              style: const TextStyle(color: Colors.redAccent),
             ),
           );
         }
 
-        final data = controller.absensiResponse.value;
-        // Penanganan jika data null atau riwayat kosong
-        final riwayat = data?.riwayat ?? [];
+        final riwayat = controller.filteredRiwayat;
 
-        if (data == null || riwayat.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.sentiment_dissatisfied,
-                    color: Colors.white70, size: 50),
-                const SizedBox(height: 10),
-                Text(
-                  data == null
-                      ? "Gagal memuat data atau data kosong."
-                      : "Belum ada riwayat absensi untuk NISN ini.",
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70, fontSize: 16),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: riwayat.length,
-          itemBuilder: (context, index) {
-            final item = riwayat[index];
-            final statusColor = _getStatusColor(item.status);
-            final statusIcon = _getStatusIcon(item.status);
-
-            return Card(
-              color: kCardColor,
-              margin: const EdgeInsets.only(bottom: 12),
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: const BorderSide(color: Colors.white12, width: 0.5),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Bagian Atas: Tanggal dan Status
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Tanggal
-                        Text(
-                          item.tanggal,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold),
+        return Column(
+          children: [
+            // ================= FILTER =================
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+              child: Column(
+                children: [
+                  TextField(
+                    onChanged: controller.setSearch,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: "Cari mata pelajaran",
+                      hintStyle: const TextStyle(color: Colors.white54),
+                      filled: true,
+                      fillColor: card,
+                      prefixIcon:
+                          const Icon(Icons.search, color: Colors.white70),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          dropdownColor: card,
+                          value: controller.selectedStatus.value,
+                          items: ["Semua", "Hadir", "Izin", "Alpha"]
+                              .map((e) => DropdownMenuItem(
+                                    value: e,
+                                    child: Text(e,
+                                        style: const TextStyle(
+                                            color: Colors.white)),
+                                  ))
+                              .toList(),
+                          onChanged: (v) => controller.setStatus(v!),
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: card,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
                         ),
-                        // Status (Menonjol)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: card,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: IconButton(
+                          tooltip: "Urutkan tanggal",
+                          onPressed: controller.toggleSort,
+                          icon: Obx(() => Icon(
+                                controller.sortTerbaru.value
+                                    ? Icons.arrow_downward_rounded
+                                    : Icons.arrow_upward_rounded,
+                                color: Colors.white,
+                              )),
+                        ),
+                      )
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // ================= LIST =================
+            Expanded(
+              child: riwayat.isEmpty
+                  ? const Center(
+                      child: Text(
+                        "Data tidak ditemukan",
+                        style: TextStyle(color: Colors.white54),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      itemCount: riwayat.length,
+                      itemBuilder: (context, i) {
+                        final item = riwayat[i];
+                        final status = item.status;
+
+                        final Color statusColor = status == "Hadir"
+                            ? Colors.greenAccent
+                            : status == "Izin"
+                                ? Colors.amber
+                                : Colors.redAccent;
+
+                        return Container(
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(20),
+                            color: card,
+                            borderRadius: BorderRadius.circular(14),
                           ),
                           child: Row(
                             children: [
-                              Icon(statusIcon, color: statusColor, size: 16),
-                              const SizedBox(width: 5),
-                              Text(
-                                item.status.toUpperCase(),
-                                style: TextStyle(
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.mapel,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      "${item.tanggal} • ${item.jam}",
+                                      style: const TextStyle(
+                                          color: Colors.white54, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: statusColor.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  status,
+                                  style: TextStyle(
                                     color: statusColor,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                      ],
+                        );
+                      },
                     ),
-                    const Divider(color: Colors.white12, height: 20),
-                    // Bagian Bawah: Detail
-                    _buildDetailRow(
-                        Icons.access_time, "Jam", item.jam, Colors.white70),
-                    _buildDetailRow(
-                        Icons.book, "Mapel", item.mapel, Colors.white70),
-                    _buildDetailRow(
-                        Icons.school, "Kelas", item.kelas, Colors.white70),
-                  ],
-                ),
-              ),
-            );
-          },
+            ),
+          ],
         );
       }),
-    );
-  }
-
-  // Widget Helper untuk baris detail yang rapih
-  Widget _buildDetailRow(
-      IconData icon, String label, String value, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color.withOpacity(0.8), size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            flex: 2,
-            child: Text(
-              "$label:",
-              style: TextStyle(color: color, fontSize: 14),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              value,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

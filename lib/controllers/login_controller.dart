@@ -22,7 +22,6 @@ class LoginController extends GetxController {
   /// LOGIN
   /// ============================
   Future<void> login() async {
-    // === Validasi input ===
     if (nisn.value.isEmpty || password.value.isEmpty) {
       _showError("NISN dan Password wajib diisi.");
       return;
@@ -41,9 +40,6 @@ class LoginController extends GetxController {
       final int statusCode = res["statusCode"];
       final data = res["body"];
 
-      print("API RESPONSE => $data");
-
-      // === Jika API error ===
       if (statusCode != 200 || data["success"] != true) {
         _showError(data["message"] ?? "Login gagal.");
         return;
@@ -52,16 +48,17 @@ class LoginController extends GetxController {
       final user = data["data"]["siswa"];
       final token = data["data"]["token"];
 
-      // === SIMPAN LOCAL ===
       await _saveUserData(user, token);
 
       _showSuccess("Login berhasil! Selamat datang ${user["nama"]}");
 
-      // Pindah ke Home
-      Get.off(() => const HomePage(), transition: Transition.fadeIn);
+      // ✅ PINDAH KE HOME (WAJIB)
+      Future.delayed(const Duration(milliseconds: 800), () {
+        Get.offAll(() => HomePage());
+      });
     } catch (e) {
       loading.value = false;
-      _showError("Tidak dapat terhubung ke server.\n$e");
+      _showError("Tidak dapat terhubung ke server.");
     }
   }
 

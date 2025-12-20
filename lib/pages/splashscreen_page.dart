@@ -20,7 +20,7 @@ class _SplashscreenPageState extends State<SplashscreenPage> {
 
     Timer(const Duration(seconds: 2), () {
       if (widget.isLoggedIn) {
-        Get.off(() => const HomePage());
+        Get.off(() => HomePage());
       } else {
         Get.off(() => LoginPage());
       }

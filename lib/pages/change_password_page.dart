@@ -171,25 +171,27 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                             : controller.gantiPassword,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blueAccent,
+                          foregroundColor: Colors.white,
                           disabledBackgroundColor: Colors.blueGrey,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          minimumSize: const Size(0, 38),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
                         child: controller.isLoading.value
                             ? const SizedBox(
                                 height: 18,
-                                width: 22,
+                                width: 18,
                                 child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
+                                  strokeWidth: 2,
                                   color: Colors.white,
                                 ),
                               )
                             : const Text(
                                 "Simpan",
                                 style: TextStyle(
-                                  fontSize: 17,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),

@@ -1,25 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:get/get.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:sia_nessly/services/api_services.dart';
+import 'package:sia_nessly/controllers/home_controller.dart';
 
 class ScanController extends GetxController {
-  // ===== STATE =====
   var isScanning = true.obs;
   var isLoading = false.obs;
 
   var statusMessage = "".obs;
-  var statusColor = (Colors.green as Color).obs;
+  var statusColor = const Color(0xFF4CAF50).obs;
 
-  // Kamera
   MobileScannerController? camera;
-
-  // Anti spam scan
   DateTime lastScan = DateTime.now();
 
-  // Lokasi sekolah
   final double sekolahLat = -6.199844;
   final double sekolahLng = 106.957780;
   final double radiusMeter = 100;
@@ -30,9 +26,7 @@ class ScanController extends GetxController {
 
   bool canProcess() {
     final now = DateTime.now();
-    if (now.difference(lastScan).inMilliseconds < 1200) {
-      return false;
-    }
+    if (now.difference(lastScan).inMilliseconds < 1200) return false;
     lastScan = now;
     return true;
   }
@@ -41,139 +35,127 @@ class ScanController extends GetxController {
     statusMessage.value = msg;
     statusColor.value = color;
 
-    // Auto hide after 3 seconds
     Future.delayed(const Duration(seconds: 3), () {
-      if (statusMessage.value == msg) {
-        statusMessage.value = "";
-      }
+      if (statusMessage.value == msg) statusMessage.value = "";
     });
   }
 
-  // ===== GET LOCATION =====
   Future<Position?> getLocation() async {
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
-        updateStatus("GPS tidak aktif!", Colors.red);
+        updateStatus("❌ GPS tidak aktif!", Colors.red);
         return null;
       }
 
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          updateStatus("Izin lokasi ditolak!", Colors.red);
-          return null;
-        }
       }
 
-      if (permission == LocationPermission.deniedForever) {
-        updateStatus("Izin lokasi ditolak permanen!", Colors.red);
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        updateStatus("❌ Izin lokasi ditolak!", Colors.red);
         return null;
       }
 
       return await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
-    } catch (e) {
-      updateStatus("Gagal mendapatkan lokasi!", Colors.red);
+    } catch (_) {
+      updateStatus("❌ Gagal mendapatkan lokasi!", Colors.red);
       return null;
     }
   }
 
   bool isInsideRadius(Position pos) {
     final distance = Geolocator.distanceBetween(
-        pos.latitude, pos.longitude, sekolahLat, sekolahLng);
+      pos.latitude,
+      pos.longitude,
+      sekolahLat,
+      sekolahLng,
+    );
     return distance <= radiusMeter;
   }
 
-  // ===== CONFIRM SCAN =====
+  Future<Map<String, dynamic>> submitAbsensi(String qrUrl) async {
+    try {
+      final uri = Uri.parse(qrUrl.trim());
+      final tokenQR = uri.pathSegments.last;
+      return await ApiService.submitAbsensi(tokenQR);
+    } catch (_) {
+      return {
+        "statusCode": 500,
+        "body": {"success": false, "message": "Gagal terhubung"}
+      };
+    }
+  }
+
+  Future<String> getAddressFromPosition(Position pos) async {
+    try {
+      final placemarks =
+          await placemarkFromCoordinates(pos.latitude, pos.longitude);
+
+      if (placemarks.isEmpty) return "Lokasi tidak diketahui";
+
+      final place = placemarks.first;
+
+      return [
+        place.street,
+        place.subLocality,
+        place.locality,
+      ].where((e) => e != null && e.isNotEmpty).join(", ");
+    } catch (_) {
+      return "Gagal membaca alamat";
+    }
+  }
+
   Future<void> confirmScan(String qrUrl, BuildContext context) async {
     isScanning.value = false;
-
-    // STOP kamera dulu
-    try {
-      await camera?.stop();
-    } catch (_) {}
+    await camera?.stop();
 
     try {
-      // ---- Dapatkan token login ----
-      final token = await ApiService.getToken();
-      if (token == null) {
-        updateStatus("Gagal mendapatkan token login!", Colors.red);
-        restartCamera();
-        return;
-      }
-
-      // ---- Ambil Lokasi ----
       final pos = await getLocation();
-      if (pos == null) {
+      if (pos == null || !isInsideRadius(pos)) {
+        updateStatus("❌ Di luar jangkauan sekolah", Colors.red);
         restartCamera();
         return;
       }
 
-      bool inside = isInsideRadius(pos);
+      isLoading.value = true;
+      final result = await submitAbsensi(qrUrl);
+      final data = result["body"];
 
-      // Ambil alamat
-      String alamat = "Lokasi tidak ditemukan";
-      try {
-        final place =
-            await placemarkFromCoordinates(pos.latitude, pos.longitude);
-        if (place.isNotEmpty) {
-          alamat =
-              "${place[0].street}, ${place[0].subLocality}, ${place[0].locality}";
-        }
-      } catch (_) {}
+      if (result["statusCode"] == 200 && data["success"] == true) {
+        final distance = Geolocator.distanceBetween(
+          pos.latitude,
+          pos.longitude,
+          sekolahLat,
+          sekolahLng,
+        ).round();
 
-      // Tampilkan status lokasi BUKAN dialog
-      updateStatus(
-          inside
-              ? "Di dalam radius sekolah.\n$alamat"
-              : "Di luar radius sekolah!\n$alamat",
-          inside ? Colors.green : Colors.red);
+        /// 🔥 AMBIL ALAMAT ASLI
+        final address = await getAddressFromPosition(pos);
 
-      // Jika di luar radius → tidak absen
-      if (!inside) {
-        restartCamera();
-        return;
+        updateStatus(
+          "✅ Absen berhasil\n"
+          "📍 $address\n"
+          "📏 Jarak: ${distance} meter",
+          Colors.green,
+        );
+
+        final homeC = Get.find<HomeController>();
+        await homeC.refreshStatus();
+      } else {
+        updateStatus(data["message"] ?? "❌ Gagal absen", Colors.red);
       }
-
-      // Jika lokasi OK → langsung absen
-      await submitAbsensi(qrUrl);
     } finally {
+      isLoading.value = false;
       restartCamera();
     }
   }
 
-  // ===== SUBMIT ABSENSI =====
-  Future<void> submitAbsensi(String qrUrl) async {
-    isLoading.value = true;
-
-    try {
-      final uri = Uri.parse(qrUrl.trim());
-      final tokenQR = uri.pathSegments.last;
-
-      final result = await ApiService.submitAbsensi(tokenQR);
-      final data = result["body"];
-
-      if (result["statusCode"] == 200 && data["success"] == true) {
-        updateStatus(data["message"], Colors.green);
-      } else {
-        updateStatus(data["message"] ?? "Gagal absen!", Colors.red);
-      }
-    } catch (e) {
-      updateStatus("Gagal terhubung ke server!", Colors.red);
-    }
-
-    isLoading.value = false;
-  }
-
-  // ===== Restart Kamera =====
   Future<void> restartCamera() async {
     await Future.delayed(const Duration(milliseconds: 500));
-
-    try {
-      await camera?.start();
-    } catch (_) {}
-
+    await camera?.start();
     isScanning.value = true;
   }
 }

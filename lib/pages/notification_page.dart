@@ -21,14 +21,14 @@ class NotificationPage extends StatelessWidget {
         titleSpacing: 10,
         title: Row(
           children: [
-            // SLOT BACK BUTTON / PLACEHOLDER
+            // BACK BUTTON (OPSIONAL)
             SizedBox(
+              width: 28,
+              height: 28,
               child: showBack
                   ? GestureDetector(
                       onTap: () => Get.back(),
                       child: Container(
-                        width: 28,
-                        height: 28,
                         decoration: BoxDecoration(
                           color: Colors.white10,
                           borderRadius: BorderRadius.circular(12),
@@ -46,7 +46,7 @@ class NotificationPage extends StatelessWidget {
                         ),
                       ),
                     )
-                  : null, // placeholder kosong
+                  : null,
             ),
 
             const SizedBox(width: 16),
@@ -63,26 +63,41 @@ class NotificationPage extends StatelessWidget {
         ),
       ),
       body: Obx(() {
+        // ================= LOADING =================
         if (notifC.loading.value) {
           return const Center(
             child: CircularProgressIndicator(color: Colors.white),
           );
         }
 
+        // ================= EMPTY STATE =================
         if (notifC.notifications.isEmpty) {
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.notifications_none, color: Colors.white24, size: 80),
-              SizedBox(height: 10),
-              Text(
-                "Tidak ada notifikasi",
-                style: TextStyle(color: Colors.white70, fontSize: 15),
-              ),
-            ],
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: const [
+                Icon(
+                  Icons.notifications_none_rounded,
+                  color: Colors.white24,
+                  size: 88,
+                ),
+                SizedBox(height: 14),
+                Text(
+                  "Tidak ada notifikasi",
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           );
         }
 
+        // ================= LIST NOTIFIKASI =================
         return ListView.separated(
           padding: const EdgeInsets.all(16),
           itemCount: notifC.notifications.length,

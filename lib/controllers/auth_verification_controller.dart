@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sia_nessly/services/api_services.dart';
 
@@ -7,13 +8,14 @@ class AuthVerificationController extends GetxController {
   var isLoading = false.obs;
 
   Future<void> verifyAccount() async {
+    // ================= VALIDASI =================
     if (email.value.isEmpty || phone.value.isEmpty) {
-      Get.snackbar("Error", "Semua field harus diisi");
+      _showError("Semua field harus diisi");
       return;
     }
 
     if (!email.value.contains("@")) {
-      Get.snackbar("Error", "Format email tidak valid");
+      _showError("Format email tidak valid");
       return;
     }
 
@@ -29,19 +31,61 @@ class AuthVerificationController extends GetxController {
       final statusCode = res["statusCode"];
 
       if (statusCode == 200 && data["success"] == true) {
-        Get.snackbar("Sukses",
-            "Verifikasi Berhasil: ${data['data']['nama'] ?? 'Siswa'}");
+        _showSuccess(
+          "Verifikasi berhasil untuk ${data['data']['nama'] ?? 'Siswa'}",
+        );
 
-        // Jika mau redirect:
+        // === Redirect (opsional) ===
         // Get.to(() => ResetPasswordPage(nisn: data['data']['nisn']));
       } else {
-        Get.snackbar(
-            "Gagal", data["message"] ?? "Email atau Nomor Telepon tidak cocok");
+        _showError(
+          data["message"] ?? "Email atau Nomor Telepon tidak cocok",
+        );
       }
     } catch (e) {
-      Get.snackbar("Error", "Terjadi kesalahan koneksi");
+      _showError("Terjadi kesalahan koneksi");
     }
 
     isLoading.value = false;
+  }
+
+  // ===================== SNACKBAR SUCCESS =====================
+  void _showSuccess(String message) {
+    Get.snackbar(
+      "Berhasil",
+      message,
+      backgroundColor: Colors.green.shade600,
+      colorText: Colors.white,
+      snackPosition: SnackPosition.TOP,
+      margin: const EdgeInsets.all(16),
+      borderRadius: 14,
+      icon: const Icon(
+        Icons.check_circle_rounded,
+        color: Colors.white,
+      ),
+      duration: const Duration(seconds: 3),
+      isDismissible: true,
+      forwardAnimationCurve: Curves.easeOutBack,
+    );
+  }
+
+  // ===================== SNACKBAR ERROR =====================
+  void _showError(String message) {
+    Get.snackbar(
+      "Gagal",
+      message,
+      backgroundColor: Colors.red.shade600,
+      colorText: Colors.white,
+      snackPosition: SnackPosition.TOP,
+      margin: const EdgeInsets.all(16),
+      borderRadius: 14,
+      icon: const Icon(
+        Icons.error_rounded,
+        color: Colors.white,
+      ),
+      duration: const Duration(seconds: 3),
+      isDismissible: true,
+      forwardAnimationCurve: Curves.easeOutBack,
+    );
   }
 }

@@ -4,9 +4,20 @@ import 'package:sia_nessly/services/api_services.dart';
 import '../models/jadwal_model.dart';
 
 class JadwalController extends GetxController {
-  var jadwalList = <JadwalModel>[].obs;
-  var isLoading = false.obs;
-  var kelasId = "".obs;
+  final jadwalList = <JadwalModel>[].obs;
+  final isLoading = false.obs;
+  final kelasId = "".obs;
+
+  final selectedDay = "Senin".obs;
+
+  final List<String> days = [
+    "Senin",
+    "Selasa",
+    "Rabu",
+    "Kamis",
+    "Jumat",
+    "Sabtu",
+  ];
 
   @override
   void onInit() {
@@ -14,35 +25,41 @@ class JadwalController extends GetxController {
     loadInitialData();
   }
 
-  /// Ambil kelas_id dari SharedPreferences
+  /// 🔥 DIPANGGIL SETIAP HALAMAN DITAMPILKAN
+  @override
+  void onReady() {
+    super.onReady();
+    _setTodayAsDefault();
+  }
+
+  void _setTodayAsDefault() {
+    final now = DateTime.now().weekday;
+    if (now >= 1 && now <= 6) {
+      selectedDay.value = days[now - 1];
+    } else {
+      selectedDay.value = days.first;
+    }
+  }
+
   Future<void> loadInitialData() async {
     final prefs = await SharedPreferences.getInstance();
-    final kelasInt = prefs.getInt("kelas_id");
+    final kelas = prefs.getInt("kelas_id");
+    if (kelas == null) return;
 
-    if (kelasInt == null) {
-      kelasId.value = "";
-      return;
-    }
-
-    kelasId.value = kelasInt.toString();
+    kelasId.value = kelas.toString();
     fetchJadwal();
   }
 
-  /// Ambil jadwal melalui ApiService
   Future<void> fetchJadwal() async {
-    if (kelasId.value.isEmpty) return;
-
     try {
       isLoading.value = true;
-
-      final List<dynamic> data = await ApiService.getJadwal(kelasId.value);
-
-      jadwalList.value =
-          data.map((json) => JadwalModel.fromJson(json)).toList();
-    } catch (e) {
-      print("Gagal memuat jadwal: $e");
+      final data = await ApiService.getJadwal(kelasId.value);
+      jadwalList.value = data.map((e) => JadwalModel.fromJson(e)).toList();
     } finally {
       isLoading.value = false;
     }
   }
+
+  List<JadwalModel> get filteredJadwal =>
+      jadwalList.where((e) => e.hari == selectedDay.value).toList();
 }

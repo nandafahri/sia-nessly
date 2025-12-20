@@ -1,23 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:printing/printing.dart';
-import 'package:pdf/widgets.dart' as pw;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+
 import '../controllers/nilai_controller.dart';
-import '../models/nilai_model.dart';
 
 const Color kPrimaryColor = Color(0xFF42A5F5);
-const Color kBackgroundColor = Colors.black; // FULL HITAM
-const Color kCardColor =
-    Color(0xFF161616); // warna card sedikit lebih terang agar kontras
+const Color kBackgroundColor = Colors.black;
+const Color kCardColor = Color(0xFF161616);
 
 class NilaiPage extends StatelessWidget {
   NilaiPage({super.key});
 
-  final NilaiController controller = Get.put(NilaiController());
+  // Gunakan Get.find karena controller sudah di-load sebelumnya (di login/home)
+  final NilaiController controller =
+      Get.put<NilaiController>(NilaiController());
 
-  Future<void> sharePdf(
-      List<NilaiModel> nilai, String semester, BuildContext ctx) async {
+  // ===============================
+  // PDF GENERATOR
+  // ===============================
+  Future<void> _downloadPdf(
+    BuildContext context,
+    String nama,
+    String namaKelas,
+  ) async {
     try {
       final doc = pw.Document();
 
@@ -25,58 +33,89 @@ class NilaiPage extends StatelessWidget {
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           build: (ctx) => [
-            pw.Text("Laporan Nilai Siswa", style: pw.TextStyle(fontSize: 20)),
-            pw.SizedBox(height: 10),
-            pw.Text("Semester: $semester"),
+            pw.Text(
+              "RAPOR NILAI SISWA",
+              style: pw.TextStyle(
+                fontSize: 18,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
             pw.SizedBox(height: 12),
+            pw.Text("Nama   : $nama"),
+            pw.Text("Kelas  : $namaKelas"),
+            pw.Text("Semester : ${controller.selectedSemester.value}"),
+            pw.SizedBox(height: 16),
             pw.Table.fromTextArray(
-              headers: ["Mapel", "Semester", "Tahun", "Nilai", "Huruf", "Ket"],
-              data: nilai.map((n) {
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              cellAlignment: pw.Alignment.center,
+              headers: const [
+                "Mapel",
+                "Harian",
+                "UTS",
+                "UAS",
+                "Akhir",
+                "Huruf",
+              ],
+              data: controller.nilaiAkhirFiltered.map((n) {
                 return [
                   n.mapelNama,
-                  n.semester,
-                  n.tahunAjaran,
-                  n.nilaiAngka.toString(),
+                  n.nilaiHarian.toStringAsFixed(0),
+                  n.nilaiUts.toStringAsFixed(0),
+                  n.nilaiUas.toStringAsFixed(0),
+                  n.nilaiAkhir.toStringAsFixed(0),
                   n.nilaiHuruf,
-                  n.keterangan
                 ];
               }).toList(),
             ),
-            pw.SizedBox(height: 20),
-            pw.Text("Generated: ${DateTime.now()}",
-                style: pw.TextStyle(fontSize: 10)),
+            pw.SizedBox(height: 24),
+            pw.Text(
+              "Dicetak pada: ${DateTime.now()}",
+              style: const pw.TextStyle(fontSize: 10),
+            ),
           ],
         ),
       );
 
       await Printing.sharePdf(
-          bytes: await doc.save(), filename: "nilai_$semester.pdf");
+        bytes: await doc.save(),
+        filename: "rapor_nilai_${controller.selectedSemester.value}.pdf",
+      );
     } catch (e) {
-      ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(content: Text("PDF error: $e")),
+      debugPrint("❌ ERROR PDF: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Gagal membuat PDF: $e")),
       );
     }
   }
 
+  // ===============================
+  // INFO BOX
+  // ===============================
   Widget infoBox(String title, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-      decoration: BoxDecoration(
-        color: Colors.indigo.shade600.withOpacity(0.35),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: Column(
-        children: [
-          Text(title,
-              style: const TextStyle(color: Colors.white70, fontSize: 12)),
-          const SizedBox(height: 4),
-          Text(value,
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.indigo.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Text(
+              title,
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
               style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold)),
-        ],
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -85,15 +124,18 @@ class NilaiPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBackgroundColor,
+
+      // ===============================
+      // APPBAR
+      // ===============================
       appBar: AppBar(
         backgroundColor: Colors.black,
         elevation: 0,
-        toolbarHeight: 62, // Sedikit lebih tinggi agar nyaman
+        toolbarHeight: 62,
         automaticallyImplyLeading: false,
         titleSpacing: 0,
         title: Row(
           children: [
-            // BACK BUTTON
             Padding(
               padding: const EdgeInsets.only(left: 12),
               child: GestureDetector(
@@ -104,98 +146,77 @@ class NilaiPage extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.white10,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white24,
-                      width: 1,
-                    ),
+                    border: Border.all(color: Colors.white24),
                   ),
                   child: const Center(
-                    child: Icon(
-                      Icons.arrow_back_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
+                    child: Icon(Icons.arrow_back_rounded,
+                        color: Colors.white, size: 20),
                   ),
                 ),
               ),
             ),
-
             const SizedBox(width: 16),
-
-            // TITLE
             const Text(
               "Nilai",
               style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600),
             ),
           ],
         ),
       ),
+
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Obx(() {
-          if (controller.isLoading.value) {
-            return const Center(
-              child: CircularProgressIndicator(color: kPrimaryColor),
-            );
-          }
-
-          if (controller.errorMessage.isNotEmpty) {
-            return Center(
-              child: Text(
-                controller.errorMessage.value,
-                style: const TextStyle(color: Colors.redAccent),
-              ),
-            );
-          }
-
-          final nilai = controller.nilaiFiltered;
+          final nilaiAkhir = controller.nilaiAkhirFiltered;
 
           return Column(
             children: [
-              // Dropdown + download button
+              // ===============================
+              // FILTER + DOWNLOAD BUTTON
+              // ===============================
               Row(
                 children: [
                   const Text("Semester:",
-                      style: TextStyle(color: Colors.white, fontSize: 16)),
+                      style: TextStyle(color: Colors.white)),
                   const SizedBox(width: 12),
                   DropdownButton<String>(
                     dropdownColor: Colors.black,
                     value: controller.selectedSemester.value,
                     items: const [
                       DropdownMenuItem(
-                          value: "Ganjil",
-                          child: Text("Ganjil",
-                              style: TextStyle(color: Colors.white))),
+                        value: "Ganjil",
+                        child: Text("Ganjil",
+                            style: TextStyle(color: Colors.white)),
+                      ),
                       DropdownMenuItem(
-                          value: "Genap",
-                          child: Text("Genap",
-                              style: TextStyle(color: Colors.white))),
+                        value: "Genap",
+                        child: Text("Genap",
+                            style: TextStyle(color: Colors.white)),
+                      ),
                     ],
-                    onChanged: (v) => controller.selectedSemester.value = v!,
+                    onChanged: (v) {
+                      if (v != null) {
+                        controller.changeSemester(
+                            v); // Hanya ganti filter, data sudah ada
+                      }
+                    },
                   ),
                   const Spacer(),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.download),
-                    label: const Text("Download PDF"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: kPrimaryColor,
-                      foregroundColor: Colors.black,
-                    ),
-                    onPressed: () {
-                      if (nilai.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content:
-                                  Text("Tidak ada data untuk semester ini")),
-                        );
-                        return;
-                      }
-                      sharePdf(
-                          nilai, controller.selectedSemester.value, context);
+
+                  // DOWNLOAD BUTTON
+                  IconButton(
+                    tooltip: "Download PDF",
+                    icon: const Icon(Icons.picture_as_pdf,
+                        color: Colors.redAccent),
+                    onPressed: () async {
+                      final prefs = await SharedPreferences.getInstance();
+                      final nama = prefs.getString("nama") ?? "-";
+                      final kelas = prefs.getString("nama_kelas") ?? "-";
+
+                      _downloadPdf(context, nama, kelas);
                     },
                   ),
                 ],
@@ -203,56 +224,83 @@ class NilaiPage extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              // Content List
+              // ===============================
+              // LIST NILAI AKHIR
+              // ===============================
               Expanded(
-                child: nilai.isEmpty
-                    ? const Center(
-                        child: Text("Tidak ada nilai pada semester ini",
-                            style: TextStyle(color: Colors.white60)),
+                child: controller.errorMessage.isNotEmpty
+                    ? Center(
+                        child: Text(
+                          controller.errorMessage.value,
+                          style: const TextStyle(color: Colors.red),
+                          textAlign: TextAlign.center,
+                        ),
                       )
-                    : ListView.builder(
-                        itemCount: nilai.length,
-                        itemBuilder: (context, index) {
-                          final n = nilai[index];
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 16),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: kCardColor,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: Colors.white10),
+                    : nilaiAkhir.isEmpty
+                        ? const Center(
+                            child: Text(
+                              "Tidak ada nilai",
+                              style: TextStyle(color: Colors.white70),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(n.mapelNama,
-                                    style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w700)),
-                                const SizedBox(height: 12),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                          )
+                        : ListView.builder(
+                            itemCount: nilaiAkhir.length,
+                            itemBuilder: (_, i) {
+                              final n = nilaiAkhir[i];
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: kCardColor,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: Colors.white10),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    infoBox("Nilai", n.nilaiAngka.toString()),
-                                    infoBox("Huruf", n.nilaiHuruf),
-                                    infoBox("Tahun", n.tahunAjaran),
+                                    Text(
+                                      n.mapelNama,
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        infoBox("Harian",
+                                            n.nilaiHarian.toStringAsFixed(0)),
+                                        const SizedBox(width: 8),
+                                        infoBox("UTS",
+                                            n.nilaiUts.toStringAsFixed(0)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        infoBox("UAS",
+                                            n.nilaiUas.toStringAsFixed(0)),
+                                        const SizedBox(width: 8),
+                                        infoBox("Akhir",
+                                            n.nilaiAkhir.toStringAsFixed(0)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Center(
+                                      child: Text(
+                                        "Nilai Huruf: ${n.nilaiHuruf}",
+                                        style: const TextStyle(
+                                          color: Colors.greenAccent,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
                                   ],
                                 ),
-                                const SizedBox(height: 12),
-                                Text("Semester: ${n.semester}",
-                                    style:
-                                        const TextStyle(color: Colors.white70)),
-                                const SizedBox(height: 6),
-                                Text("Keterangan: ${n.keterangan}",
-                                    style:
-                                        const TextStyle(color: Colors.white70)),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
+                              );
+                            },
+                          ),
               ),
             ],
           );

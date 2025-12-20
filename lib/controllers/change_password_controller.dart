@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sia_nessly/pages/login_page.dart';
@@ -16,22 +17,22 @@ class ChangePasswordController extends GetxController {
     final nisn = prefs.getString("nisn");
 
     if (nisn == null) {
-      Get.snackbar("Error", "NISN tidak ditemukan, silakan login ulang!");
+      showError("NISN tidak ditemukan, silakan login ulang!");
       return;
     }
 
     if (oldPassCtrl.value.isEmpty || newPassCtrl.value.isEmpty) {
-      Get.snackbar("Error", "Semua field wajib diisi");
+      showError("Semua field wajib diisi");
       return;
     }
 
     if (oldPassCtrl.value == newPassCtrl.value) {
-      Get.snackbar("Error", "Password baru harus berbeda dari password lama");
+      showError("Password baru harus berbeda dari password lama");
       return;
     }
 
     if (newPassCtrl.value.length < 6) {
-      Get.snackbar("Error", "Password minimal 6 karakter");
+      showError("Password minimal 6 karakter");
       return;
     }
 
@@ -49,13 +50,53 @@ class ChangePasswordController extends GetxController {
     final statusCode = res.statusCode;
 
     if (statusCode == 200 && data["success"] == true) {
-      Get.snackbar("Berhasil", data["message"]);
+      showSuccess(data["message"] ?? "Password berhasil diubah");
 
-      await prefs.clear(); // logout
-
+      await prefs.remove("auth_token");
+      await prefs.remove("nisn");
       Get.offAll(() => LoginPage());
     } else {
-      Get.snackbar("Gagal", data["message"] ?? "Gagal mengganti password");
+      showError(data["message"] ?? "Gagal mengganti password");
     }
+  }
+
+  // ===================== SNACKBAR SUCCESS =====================
+  void showSuccess(String message) {
+    Get.snackbar(
+      "Berhasil",
+      message,
+      backgroundColor: Colors.green.shade600,
+      colorText: Colors.white,
+      snackPosition: SnackPosition.TOP,
+      margin: const EdgeInsets.all(16),
+      borderRadius: 14,
+      icon: const Icon(
+        Icons.check_circle_rounded,
+        color: Colors.white,
+      ),
+      duration: const Duration(seconds: 3),
+      isDismissible: true,
+      forwardAnimationCurve: Curves.easeOutBack,
+    );
+  }
+
+  // ===================== SNACKBAR ERROR =====================
+  void showError(String message) {
+    Get.snackbar(
+      "Gagal",
+      message,
+      backgroundColor: Colors.red.shade600,
+      colorText: Colors.white,
+      snackPosition: SnackPosition.TOP,
+      margin: const EdgeInsets.all(16),
+      borderRadius: 14,
+      icon: const Icon(
+        Icons.error_rounded,
+        color: Colors.white,
+      ),
+      duration: const Duration(seconds: 3),
+      isDismissible: true,
+      forwardAnimationCurve: Curves.easeOutBack,
+    );
   }
 }

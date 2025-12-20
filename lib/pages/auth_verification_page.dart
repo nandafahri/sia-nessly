@@ -175,6 +175,7 @@ class _AuthVerificationPageState extends State<AuthVerificationPage> {
                             : controller.verifyAccount,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blueAccent,
+                          foregroundColor: Colors.white,
                           disabledBackgroundColor: Colors.blueGrey,
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           minimumSize: const Size(0, 38), // button kecil & rapi

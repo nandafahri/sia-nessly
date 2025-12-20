@@ -1,10 +1,16 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  // static const String baseUrl = "http://192.168.1.4:8000/api"; /real device
-  static const String baseUrl = "http://10.0.2.2:8000/api"; //emulator
+  static const String baseUrl = "http://192.168.1.3:8000/api"; //real device
+  // static const String baseUrl = "http://10.0.2.2:8000/api"; //emulator
+
+  static Map<String, String> authHeader(String token) => {
+        "Accept": "application/json",
+        "Authorization": "Bearer $token",
+      };
 
   // UNIVERSAL GET REQUEST
   static Future<Map<String, dynamic>> getRequest(String endpoint) async {
@@ -144,6 +150,22 @@ class ApiService {
     return body["data"] ?? [];
   }
 
+  static Future<List<dynamic>> getNilaiAkhir(int siswaId) async {
+    final response = await http.get(
+      Uri.parse("$baseUrl/nilai-akhir?siswa_id=$siswaId"),
+      headers: {
+        "Accept": "application/json",
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final body = jsonDecode(response.body);
+      return body["data"];
+    } else {
+      throw Exception("Gagal memuat nilai akhir");
+    }
+  }
+
   // ================================
   // NOTIFIKASI
   // ================================
@@ -152,14 +174,14 @@ class ApiService {
     return response["data"] ?? [];
   }
 
-  // Ambil profil siswa
-  static Future<Map<String, dynamic>> getProfile(String nisn) async {
-    final url = Uri.parse("$baseUrl/siswa/profile/$nisn");
+  // // Ambil profil siswa
+  // static Future<Map<String, dynamic>> getProfile(String nisn) async {
+  //   final url = Uri.parse("$baseUrl/siswa/profile/$nisn");
 
-    final response = await http.get(url);
+  //   final response = await http.get(url);
 
-    return json.decode(response.body);
-  }
+  //   return json.decode(response.body);
+  // }
 
   // Logout siswa
   static Future<bool> logout(String nisn) async {
@@ -255,5 +277,59 @@ class ApiService {
       "statusCode": response.statusCode,
       "body": jsonDecode(response.body),
     };
+  }
+
+  // ================================
+// STATUS ABSENSI SISWA (FINAL)
+// ================================
+
+  static Future<int> getJumlahAbsenHariIni(String nisn) async {
+    try {
+      final token = await getToken();
+      if (token == null) return 0;
+
+      final url = Uri.parse("$baseUrl/status/jumlah-absensi/$nisn");
+
+      final response = await http.get(
+        url,
+        headers: {
+          "Accept": "application/json",
+          "Authorization": "Bearer $token",
+        },
+      );
+
+      if (response.statusCode != 200) return 0;
+
+      final body = jsonDecode(response.body);
+      return body["jumlah"] ?? 0;
+    } catch (e) {
+      debugPrint("ERROR getJumlahAbsenHariIni: $e");
+      return 0;
+    }
+  }
+
+  static Future<int> getJumlahMapelHariIni(String nisn) async {
+    try {
+      final token = await getToken();
+      if (token == null) return 0;
+
+      final url = Uri.parse("$baseUrl/status/jumlah-jadwal/$nisn");
+
+      final response = await http.get(
+        url,
+        headers: {
+          "Accept": "application/json",
+          "Authorization": "Bearer $token",
+        },
+      );
+
+      if (response.statusCode != 200) return 0;
+
+      final body = jsonDecode(response.body);
+      return body["jumlah"] ?? 0;
+    } catch (e) {
+      debugPrint("ERROR getJumlahMapelHariIni: $e");
+      return 0;
+    }
   }
 }

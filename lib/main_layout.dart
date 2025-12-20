@@ -16,7 +16,7 @@ class _MainLayoutState extends State<MainLayout> {
   int _currentIndex = 0;
 
   final List<Widget> _pages = [
-    const HomePage(),
+    HomePage(),
     const CalendarPage(),
     ScanPage(),
     NotificationPage(),
