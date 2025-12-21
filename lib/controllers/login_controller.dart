@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sia_nessly/controllers/home_controller.dart';
 import 'package:sia_nessly/pages/home_page.dart';
 import 'package:sia_nessly/services/api_services.dart';
 
@@ -49,10 +50,12 @@ class LoginController extends GetxController {
       final token = data["data"]["token"];
 
       await _saveUserData(user, token);
+      Get.find<HomeController>().loadUser();
 
       _showSuccess("Login berhasil! Selamat datang ${user["nama"]}");
 
       // ✅ PINDAH KE HOME (WAJIB)
+
       Future.delayed(const Duration(milliseconds: 800), () {
         Get.offAll(() => HomePage());
       });
@@ -79,6 +82,8 @@ class LoginController extends GetxController {
     await prefs.setString("alamat", user["alamat"] ?? "");
     await prefs.setString("nomor_telepon", user["nomor_telepon"] ?? "");
     await prefs.setString("foto", (user["foto"] ?? "").toString());
+    await prefs.setString("tingkat", user["tingkat"]?.toString() ?? "");
+    debugPrint("TINGKAT SISWA => ${user["tingkat"]}");
   }
 
   /// ============================
@@ -88,6 +93,7 @@ class LoginController extends GetxController {
     Get.snackbar(
       "Login Gagal",
       message,
+      // ignore: deprecated_member_use
       backgroundColor: Colors.red.withOpacity(0.9),
       colorText: Colors.white,
       snackPosition: SnackPosition.TOP,

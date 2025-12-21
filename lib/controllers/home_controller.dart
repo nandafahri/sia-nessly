@@ -10,6 +10,7 @@ class HomeController extends GetxController {
   var nisn = "".obs;
   var namaKelas = "".obs;
   var foto = "".obs;
+  var tingkat = "".obs; // ✅ TAMBAHKAN
 
   // ================= STATUS ABSENSI =================
   /// total mapel hari ini
@@ -54,6 +55,8 @@ class HomeController extends GetxController {
     nisn.value = prefs.getString("nisn") ?? "";
     namaKelas.value = prefs.getString("nama_kelas") ?? "";
     foto.value = prefs.getString("foto") ?? "";
+    tingkat.value = prefs.getString("tingkat") ?? "-"; // ✅ AMBIL
+    debugPrint("HOME LOAD TINGKAT => ${tingkat.value}");
   }
 
   Future<void> refreshStatus() async {

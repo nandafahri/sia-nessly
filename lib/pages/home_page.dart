@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:sia_nessly/controllers/nilai_controller.dart';
 import 'package:sia_nessly/pages/absensi_page.dart';
 import 'package:sia_nessly/pages/calendar_page.dart';
 import 'package:sia_nessly/pages/info_page.dart';
@@ -18,6 +19,8 @@ class HomePage extends StatelessWidget {
   HomePage({super.key});
 
   final HomeController homeC = Get.find<HomeController>();
+  final NilaiController nilaiController =
+      Get.put(NilaiController(), permanent: true);
 
   @override
   Widget build(BuildContext context) {
@@ -89,17 +92,18 @@ class HomePage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          "Hallo, ${homeC.nama.value}",
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          "Kelas - ${homeC.namaKelas.value}",
-                          style: const TextStyle(color: Colors.white54),
-                        ),
+                        Obx(() => Text(
+                              "Hallo, ${homeC.nama.value}",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )),
+                        Obx(() => Text(
+                              "Kelas - ${homeC.tingkat.value} ${homeC.namaKelas.value}",
+                              style: const TextStyle(color: Colors.white54),
+                            )),
                       ],
                     ),
                   ),

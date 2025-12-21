@@ -78,7 +78,10 @@ class DetailProfilePage extends StatelessWidget {
               _buildDetailItem(
                   Icons.email_outlined, "Email", controller.email.value),
               _buildDetailItem(
-                  Icons.school_outlined, "Kelas", controller.namaKelas.value),
+                Icons.school_outlined,
+                "Kelas",
+                "${controller.tingkat.value} ${controller.namaKelas.value}",
+              ),
               _buildDetailItem(Icons.wc_outlined, "Jenis Kelamin",
                   controller.jenisKelamin.value),
             ]),

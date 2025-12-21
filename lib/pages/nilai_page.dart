@@ -15,8 +15,7 @@ class NilaiPage extends StatelessWidget {
   NilaiPage({super.key});
 
   // Gunakan Get.find karena controller sudah di-load sebelumnya (di login/home)
-  final NilaiController controller =
-      Get.put<NilaiController>(NilaiController());
+  final NilaiController controller = Get.find<NilaiController>();
 
   // ===============================
   // PDF GENERATOR
@@ -25,6 +24,7 @@ class NilaiPage extends StatelessWidget {
     BuildContext context,
     String nama,
     String namaKelas,
+    String tingkat,
   ) async {
     try {
       final doc = pw.Document();
@@ -42,7 +42,7 @@ class NilaiPage extends StatelessWidget {
             ),
             pw.SizedBox(height: 12),
             pw.Text("Nama   : $nama"),
-            pw.Text("Kelas  : $namaKelas"),
+            pw.Text("Kelas  : $tingkat $namaKelas"),
             pw.Text("Semester : ${controller.selectedSemester.value}"),
             pw.SizedBox(height: 16),
             pw.Table.fromTextArray(
@@ -179,34 +179,54 @@ class NilaiPage extends StatelessWidget {
               // ===============================
               Row(
                 children: [
+                  // ===== SEMESTER =====
                   const Text("Semester:",
                       style: TextStyle(color: Colors.white)),
-                  const SizedBox(width: 12),
-                  DropdownButton<String>(
-                    dropdownColor: Colors.black,
-                    value: controller.selectedSemester.value,
-                    items: const [
-                      DropdownMenuItem(
-                        value: "Ganjil",
-                        child: Text("Ganjil",
-                            style: TextStyle(color: Colors.white)),
-                      ),
-                      DropdownMenuItem(
-                        value: "Genap",
-                        child: Text("Genap",
-                            style: TextStyle(color: Colors.white)),
-                      ),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) {
-                        controller.changeSemester(
-                            v); // Hanya ganti filter, data sudah ada
-                      }
-                    },
-                  ),
+                  const SizedBox(width: 8),
+
+                  Obx(() => DropdownButton<String>(
+                        dropdownColor: Colors.black,
+                        value: controller.selectedSemester.value,
+                        underline: const SizedBox(),
+                        items: controller.listSemester
+                            .map((s) => DropdownMenuItem(
+                                  value: s,
+                                  child: Text(s,
+                                      style:
+                                          const TextStyle(color: Colors.white)),
+                                ))
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null) controller.changeSemester(v);
+                        },
+                      )),
+
+                  const SizedBox(width: 16),
+
+                  // ===== TAHUN AJARAN =====
+                  const Text("TA:", style: TextStyle(color: Colors.white)),
+                  const SizedBox(width: 8),
+
+                  Obx(() => DropdownButton<String>(
+                        dropdownColor: Colors.black,
+                        value: controller.selectedTahunAjaran.value,
+                        underline: const SizedBox(),
+                        items: controller.listTahunAjaran
+                            .map((t) => DropdownMenuItem(
+                                  value: t,
+                                  child: Text(t,
+                                      style:
+                                          const TextStyle(color: Colors.white)),
+                                ))
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null) controller.changeTahunAjaran(v);
+                        },
+                      )),
+
                   const Spacer(),
 
-                  // DOWNLOAD BUTTON
+                  // ===== DOWNLOAD PDF =====
                   IconButton(
                     tooltip: "Download PDF",
                     icon: const Icon(Icons.picture_as_pdf,
@@ -215,8 +235,9 @@ class NilaiPage extends StatelessWidget {
                       final prefs = await SharedPreferences.getInstance();
                       final nama = prefs.getString("nama") ?? "-";
                       final kelas = prefs.getString("nama_kelas") ?? "-";
+                      final tingkat = prefs.getString("tingkat") ?? "-";
 
-                      _downloadPdf(context, nama, kelas);
+                      _downloadPdf(context, nama, kelas, tingkat);
                     },
                   ),
                 ],
