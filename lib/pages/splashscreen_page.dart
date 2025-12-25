@@ -1,13 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sia_nessly/pages/home_page.dart';
-import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../controllers/home_controller.dart';
+import 'home_page.dart';
 import 'login_page.dart';
 
 class SplashscreenPage extends StatefulWidget {
-  final bool isLoggedIn;
-
-  const SplashscreenPage({super.key, required this.isLoggedIn});
+  const SplashscreenPage({super.key});
 
   @override
   State<SplashscreenPage> createState() => _SplashscreenPageState();
@@ -17,14 +18,32 @@ class _SplashscreenPageState extends State<SplashscreenPage> {
   @override
   void initState() {
     super.initState();
+    _initApp();
+  }
 
-    Timer(const Duration(seconds: 2), () {
-      if (widget.isLoggedIn) {
-        Get.off(() => HomePage());
-      } else {
-        Get.off(() => LoginPage());
+  Future<void> _initApp() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("auth_token");
+
+      if (!Get.isRegistered<HomeController>()) {
+        Get.put(HomeController(), permanent: true);
       }
-    });
+
+      await Future.delayed(const Duration(seconds: 2));
+
+      if (token != null) {
+        Get.offAll(() => HomePage());
+      } else {
+        Get.offAll(() => LoginPage());
+      }
+    } catch (e, s) {
+      debugPrint('INIT ERROR: $e');
+      debugPrintStack(stackTrace: s);
+
+      // fallback supaya app tidak freeze
+      Get.offAll(() => LoginPage());
+    }
   }
 
   @override
@@ -33,19 +52,14 @@ class _SplashscreenPageState extends State<SplashscreenPage> {
       backgroundColor: Colors.black,
       body: Center(
         child: Column(
-          mainAxisSize: MainAxisSize
-              .min, // Agar Column hanya memakan ruang secukupnya dan tetap di tengah
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // LOGO
             Image.asset(
               'assets/logo_sma.png',
               width: 150,
             ),
-
-            const SizedBox(height: 25), // Jarak antara logo dan teks
-
-            // TEKS LANGSUNG DI BAWAH LOGO
+            const SizedBox(height: 25),
             const Text(
               "SMA NEGERI 1 SLIYEG",
               style: TextStyle(
@@ -56,7 +70,10 @@ class _SplashscreenPageState extends State<SplashscreenPage> {
             ),
             const Text(
               "portal nessly",
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+              ),
             ),
           ],
         ),

@@ -10,10 +10,9 @@ import '../services/api_services.dart';
 class NilaiController extends GetxController {
   // ================= STATE =================
   var errorMessage = ''.obs;
-
   var nilai = <NilaiModel>[].obs;
   var nilaiAkhir = <NilaiAkhirModel>[].obs;
-  var tingkat = "".obs; // ✅ TAMBAHKAN
+  var tingkat = "".obs;
 
   // ================= FILTER =================
   final listSemester = ["Ganjil", "Genap"];
@@ -24,11 +23,19 @@ class NilaiController extends GetxController {
 
   Timer? _refreshTimer;
 
+  int? _siswaId;
+  bool _isLoadingData = false; // 🔒 LOCK
+
   // ================= INIT =================
   @override
   void onInit() {
     super.onInit();
     _initTahunAjaran();
+  }
+
+  @override
+  void onReady() {
+    super.onReady();
     loadData();
     startAutoRefresh();
   }
@@ -41,38 +48,56 @@ class NilaiController extends GetxController {
 
   // ================= LOAD DATA =================
   Future<void> loadData() async {
+    if (_isLoadingData) return;
+    _isLoadingData = true;
+
     try {
       errorMessage.value = "";
 
-      final prefs = await SharedPreferences.getInstance();
-      final siswaId = prefs.getInt("id");
-
-      if (siswaId == null) {
+      _siswaId ??= await _getSiswaId();
+      if (_siswaId == null) {
         errorMessage.value = "Siswa belum login";
         return;
       }
 
-      final nilaiData = await ApiService.getNilai(siswaId);
-      nilai.assignAll(
-        nilaiData.map((e) => NilaiModel.fromJson(e)).toList(),
-      );
+      final nilaiData = await ApiService.getNilai(_siswaId!);
+      nilai.assignAll(nilaiData
+          .map((e) => NilaiModel.fromJson(e as Map<String, dynamic>))
+          .toList());
 
-      final akhirData = await ApiService.getNilaiAkhir(siswaId);
-      nilaiAkhir.assignAll(
-        akhirData.map((e) => NilaiAkhirModel.fromJson(e)).toList(),
-      );
+      final akhirData = await ApiService.getNilaiAkhir(_siswaId!);
+      nilaiAkhir.assignAll(akhirData
+          .map((e) => NilaiAkhirModel.fromJson(e as Map<String, dynamic>))
+          .toList());
     } catch (e, s) {
       errorMessage.value = "Gagal memuat data nilai";
       debugPrint("❌ ERROR loadData: $e");
       debugPrintStack(stackTrace: s);
+    } finally {
+      _isLoadingData = false;
+    }
+  }
+
+  Future<int?> _getSiswaId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getInt("id");
+    } catch (_) {
+      return null;
     }
   }
 
   // ================= AUTO REFRESH =================
   void startAutoRefresh() {
     _refreshTimer?.cancel();
-    _refreshTimer =
-        Timer.periodic(const Duration(seconds: 8), (_) => loadData());
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 8),
+      (_) async {
+        if (!_isLoadingData) {
+          await loadData();
+        }
+      },
+    );
   }
 
   // ================= FILTER HANDLER =================
@@ -83,8 +108,10 @@ class NilaiController extends GetxController {
   void changeTahunAjaran(String tahun) async {
     selectedTahunAjaran.value = tahun;
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString("tahun_ajaran", tahun);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString("tahun_ajaran", tahun);
+    } catch (_) {}
   }
 
   // ================= FILTERED DATA =================
@@ -118,16 +145,17 @@ class NilaiController extends GetxController {
 
   // ================= TAHUN AJARAN =================
   Future<void> _initTahunAjaran() async {
-    final prefs = await SharedPreferences.getInstance();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final defaultTA =
+          prefs.getString("tahun_ajaran") ?? _currentTahunAjaran();
 
-    final defaultTA = prefs.getString("tahun_ajaran") ?? _currentTahunAjaran();
+      final list = _generateTahunAjaranList();
+      listTahunAjaran.assignAll(list);
 
-    final list = _generateTahunAjaranList();
-    listTahunAjaran.assignAll(list);
-
-    // 🔥 ANTI ERROR DROPDOWN
-    selectedTahunAjaran.value =
-        list.contains(defaultTA) ? defaultTA : list.first;
+      selectedTahunAjaran.value =
+          list.contains(defaultTA) ? defaultTA : list.first;
+    } catch (_) {}
   }
 
   String _currentTahunAjaran() {

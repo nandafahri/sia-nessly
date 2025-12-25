@@ -18,6 +18,8 @@ class AbsensiController extends GetxController {
   // ================= REALTIME =================
   Timer? _timer;
   String? _nisn;
+  String? _token;
+  bool _isPolling = false; // 🔒 LOCK
 
   // ================= LOAD DATA =================
   Future<void> loadAbsensi(String nisn, {bool silent = false}) async {
@@ -26,10 +28,11 @@ class AbsensiController extends GetxController {
       errorMessage.value = "";
       _nisn = nisn;
 
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString("auth_token") ?? "";
+      // 🔒 Ambil token SEKALI
+      _token ??= await _getToken();
+      if (_token == null || _token!.isEmpty) return;
 
-      final res = await ApiService.getAbsensi(nisn, token);
+      final res = await ApiService.getAbsensi(nisn, _token!);
 
       if (res["statusCode"] != 200) {
         errorMessage.value =
@@ -45,16 +48,34 @@ class AbsensiController extends GetxController {
     }
   }
 
+  Future<String?> _getToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString("auth_token");
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ================= REALTIME POLLING =================
   void startRealtime(String nisn) {
+    if (nisn.isEmpty) return;
+
     _nisn = nisn;
     _timer?.cancel();
 
     _timer = Timer.periodic(
-      const Duration(seconds: 5), // ⏱ realtime tiap 5 detik
-      (_) {
-        if (_nisn != null) {
-          loadAbsensi(_nisn!, silent: true);
+      const Duration(seconds: 5),
+      (_) async {
+        if (_isPolling || _nisn == null) return;
+
+        _isPolling = true;
+        try {
+          await loadAbsensi(_nisn!, silent: true);
+        } catch (_) {
+          // diamkan, jangan pause debugger
+        } finally {
+          _isPolling = false;
         }
       },
     );
@@ -67,16 +88,13 @@ class AbsensiController extends GetxController {
     List<AbsensiItem> data =
         List<AbsensiItem>.from(absensiResponse.value!.riwayat);
 
-    // FILTER STATUS
     if (selectedStatus.value != "Semua") {
       data = data
           .where((e) =>
-              e.status.toLowerCase() ==
-              selectedStatus.value.toLowerCase())
+              e.status.toLowerCase() == selectedStatus.value.toLowerCase())
           .toList();
     }
 
-    // SEARCH MAPEL
     if (searchQuery.value.isNotEmpty) {
       data = data
           .where((e) =>
@@ -84,7 +102,6 @@ class AbsensiController extends GetxController {
           .toList();
     }
 
-    // SORT TANGGAL (AMAN)
     data.sort((a, b) {
       final dateA = DateTime.tryParse(a.tanggal) ?? DateTime(2000);
       final dateB = DateTime.tryParse(b.tanggal) ?? DateTime(2000);

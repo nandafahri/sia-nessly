@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sia_nessly/services/api_services.dart';
 
@@ -6,24 +7,24 @@ class NotificationController extends GetxController {
   var notifications = <dynamic>[].obs;
   var loading = true.obs;
 
-  final ApiService api = ApiService();
-  Timer? autoRefreshTimer;
+  Worker? _intervalWorker;
 
   @override
   void onInit() {
     super.onInit();
     fetchNotifications();
 
-    // Auto refresh setiap 5 detik
-    autoRefreshTimer = Timer.periodic(
-      const Duration(seconds: 5),
+    // 🔥 Auto refresh aman
+    _intervalWorker = interval(
+      notifications,
       (_) => fetchNotifications(silent: true),
+      time: const Duration(seconds: 5),
     );
   }
 
   @override
   void onClose() {
-    autoRefreshTimer?.cancel();
+    _intervalWorker?.dispose();
     super.onClose();
   }
 
@@ -32,9 +33,9 @@ class NotificationController extends GetxController {
 
     try {
       final data = await ApiService.getNotifications();
-      notifications.value = data;
+      notifications.assignAll(data);
     } catch (e) {
-      print("Notif error: $e");
+      debugPrint("❌ Notif error: $e");
     } finally {
       loading.value = false;
     }

@@ -15,21 +15,35 @@ const Color kPrimaryColor = Color(0xFF42A5F5);
 const Color kBackgroundColor = Colors.black;
 const Color kCardColor = Color(0xFF161616);
 
-class HomePage extends StatelessWidget {
-  HomePage({super.key});
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
 
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
   final HomeController homeC = Get.find<HomeController>();
   final NilaiController nilaiController =
       Get.put(NilaiController(), permanent: true);
 
+  bool _isRefreshed = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 🔥 DIPANGGIL SEKALI SAJA
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_isRefreshed) {
+        homeC.refreshStatus();
+        _isRefreshed = true;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    /// 🔥 INI PALING PENTING
-    /// Paksa refresh status setiap Home ditampilkan
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      homeC.refreshStatus();
-    });
-
     final pages = [
       () => _homeContent(),
       () => CalendarPage(),
@@ -80,7 +94,8 @@ class HomePage extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 30,
-                    backgroundImage: homeC.foto.value.isNotEmpty
+                    backgroundImage: (homeC.foto.value.isNotEmpty &&
+                            homeC.foto.value.startsWith("http"))
                         ? NetworkImage(homeC.foto.value)
                         : const AssetImage("assets/default_profile.png")
                             as ImageProvider,

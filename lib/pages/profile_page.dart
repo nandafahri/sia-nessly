@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sia_nessly/controllers/profile_controller.dart';
 import 'package:sia_nessly/pages/auth_verification_page.dart';
 import 'package:sia_nessly/pages/change_email_page.dart';
 import 'package:sia_nessly/pages/change_password_page.dart';
@@ -23,12 +24,15 @@ class ProfilePage extends StatefulWidget {
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
+final ProfileController homeC = Get.put<ProfileController>(ProfileController());
+
 class _ProfilePageState extends State<ProfilePage> {
   String nama = "Memuat...";
   String kelas = "Memuat...";
   String foto = "";
   final ChangeEmailController emailController =
       Get.put(ChangeEmailController());
+  var tingkat = "".obs; // ✅ TAMBAHKAN
 
   @override
   void initState() {
@@ -42,6 +46,8 @@ class _ProfilePageState extends State<ProfilePage> {
       nama = prefs.getString("nama") ?? "Pengguna Aplikasi";
       kelas = prefs.getString("nama_kelas") ?? "-";
       foto = prefs.getString("foto") ?? "";
+      tingkat.value = prefs.getString("tingkat") ?? "-"; // ✅ AMBIL
+
       emailController.currentEmail.value = prefs.getString("email") ?? "";
     });
   }
@@ -139,11 +145,13 @@ class _ProfilePageState extends State<ProfilePage> {
           children: [
             CircleAvatar(
               radius: 30,
-              backgroundImage: foto.isNotEmpty
-                  ? NetworkImage(foto)
+              backgroundImage: (homeC.foto.value.isNotEmpty &&
+                      homeC.foto.value.startsWith("http"))
+                  ? NetworkImage(homeC.foto.value)
                   : const AssetImage("assets/default_profile.png")
                       as ImageProvider,
             ),
+
             const SizedBox(width: 15),
             Expanded(
               child: Column(
@@ -159,7 +167,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    "Kelas $kelas",
+                    "Kelas $tingkat $kelas",
                     style: const TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                 ],

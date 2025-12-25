@@ -12,6 +12,7 @@ class ProfileController extends GetxController {
   var jenisKelamin = "".obs;
   var nomorTelepon = "".obs;
   var alamat = "".obs;
+  var tingkat = "".obs; // ✅ TAMBAHKAN
 
   @override
   void onInit() {
@@ -29,6 +30,7 @@ class ProfileController extends GetxController {
     jenisKelamin.value = prefs.getString("jenis_kelamin") ?? "";
     nomorTelepon.value = prefs.getString("nomor_telepon") ?? "";
     alamat.value = prefs.getString("alamat") ?? "";
+    tingkat.value = prefs.getString("tingkat") ?? "-"; // ✅ AMBIL
   }
 
   Future<void> logout() async {
