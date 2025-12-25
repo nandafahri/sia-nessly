@@ -28,6 +28,20 @@ class _HomePageState extends State<HomePage> {
       Get.put(NilaiController(), permanent: true);
 
   bool _isRefreshed = false;
+  Widget _visiCard(String text) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: kCardColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(color: Colors.white70),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -217,20 +231,33 @@ class _HomePageState extends State<HomePage> {
           const Text(
             "Visi & Misi Sekolah",
             style: TextStyle(
-                color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 10),
 
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: kCardColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Text(
-              "Terwujudnya Peserta Didik yang Santun, Aktif, Terampil, "
-              "Religius, Inovatif dan Antusias dalam meningkatkan budaya mutu sekolah.",
-              style: TextStyle(color: Colors.white70),
+          SizedBox(
+            height: 340, // 👈 batas tinggi area visi misi (WAJIB)
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _visiCard(
+                  "Terwujudnya Peserta Didik yang Santun, Aktif, Terampil, "
+                  "Religius, Inovatif dan Antusias dalam meningkatkan budaya mutu sekolah.",
+                ),
+                _visiCard(
+                  "Mengembangkan potensi akademik dan non akademik peserta didik "
+                  "melalui pembelajaran aktif dan kreatif.",
+                ),
+                _visiCard(
+                  "Mewujudkan lingkungan sekolah yang aman, nyaman, dan berkarakter.",
+                ),
+                _visiCard(
+                  "Menanamkan nilai disiplin, tanggung jawab, dan kerja sama.",
+                ),
+              ],
             ),
           ),
         ],

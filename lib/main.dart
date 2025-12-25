@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'pages/splashscreen_page.dart';
+import 'package:sia_nessly/pages/splashscreen_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

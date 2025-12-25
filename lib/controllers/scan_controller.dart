@@ -1,33 +1,33 @@
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:get/get.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:sia_nessly/services/api_services.dart';
 import 'package:sia_nessly/controllers/home_controller.dart';
 
 class ScanController extends GetxController {
-  var isScanning = true.obs;
-  var isLoading = false.obs;
+  final isScanning = true.obs;
+  final isLoading = false.obs;
 
-  var statusMessage = "".obs;
-  var statusColor = const Color(0xFF4CAF50).obs;
+  final statusMessage = "".obs;
+  final statusColor = const Color(0xFF4CAF50).obs;
 
   MobileScannerController? camera;
-  DateTime lastScan = DateTime.now();
+  DateTime _lastScan = DateTime.now();
 
   final double sekolahLat = -6.199844;
   final double sekolahLng = 106.957780;
   final double radiusMeter = 100;
 
-  void attachCamera(MobileScannerController cam) {
-    camera = cam;
+  void attachCamera(MobileScannerController controller) {
+    camera = controller;
   }
 
   bool canProcess() {
     final now = DateTime.now();
-    if (now.difference(lastScan).inMilliseconds < 1200) return false;
-    lastScan = now;
+    if (now.difference(_lastScan).inMilliseconds < 1200) return false;
+    _lastScan = now;
     return true;
   }
 
@@ -36,37 +36,36 @@ class ScanController extends GetxController {
     statusColor.value = color;
 
     Future.delayed(const Duration(seconds: 3), () {
-      if (statusMessage.value == msg) statusMessage.value = "";
+      if (statusMessage.value == msg) {
+        statusMessage.value = "";
+      }
     });
   }
 
-  Future<Position?> getLocation() async {
-    try {
-      if (!await Geolocator.isLocationServiceEnabled()) {
-        updateStatus("❌ GPS tidak aktif!", Colors.red);
-        return null;
-      }
-
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        updateStatus("❌ Izin lokasi ditolak!", Colors.red);
-        return null;
-      }
-
-      return await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
-    } catch (_) {
-      updateStatus("❌ Gagal mendapatkan lokasi!", Colors.red);
+  // ================= LOCATION =================
+  Future<Position?> _getLocation() async {
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      updateStatus("❌ GPS tidak aktif", Colors.red);
       return null;
     }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      updateStatus("❌ Izin lokasi ditolak", Colors.red);
+      return null;
+    }
+
+    return Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
   }
 
-  bool isInsideRadius(Position pos) {
+  bool _insideRadius(Position pos) {
     final distance = Geolocator.distanceBetween(
       pos.latitude,
       pos.longitude,
@@ -76,55 +75,44 @@ class ScanController extends GetxController {
     return distance <= radiusMeter;
   }
 
-  Future<Map<String, dynamic>> submitAbsensi(String qrUrl) async {
+  Future<String> _getAddress(Position pos) async {
     try {
-      final uri = Uri.parse(qrUrl.trim());
-      final tokenQR = uri.pathSegments.last;
-      return await ApiService.submitAbsensi(tokenQR);
-    } catch (_) {
-      return {
-        "statusCode": 500,
-        "body": {"success": false, "message": "Gagal terhubung"}
-      };
-    }
-  }
-
-  Future<String> getAddressFromPosition(Position pos) async {
-    try {
-      final placemarks =
+      final places =
           await placemarkFromCoordinates(pos.latitude, pos.longitude);
+      if (places.isEmpty) return "Alamat tidak diketahui";
 
-      if (placemarks.isEmpty) return "Lokasi tidak diketahui";
-
-      final place = placemarks.first;
-
+      final p = places.first;
       return [
-        place.street,
-        place.subLocality,
-        place.locality,
-      ].where((e) => e != null && e.isNotEmpty).join(", ");
+        p.street,
+        p.subLocality,
+        p.locality,
+      ].whereType<String>().where((e) => e.isNotEmpty).join(", ");
     } catch (_) {
       return "Gagal membaca alamat";
     }
   }
 
-  Future<void> confirmScan(String qrUrl, BuildContext context) async {
+  // ================= SUBMIT =================
+  Future<void> confirmScan(String raw) async {
+    if (!isScanning.value) return;
+
     isScanning.value = false;
-    await camera?.stop();
+    isLoading.value = true;
 
     try {
-      final pos = await getLocation();
-      if (pos == null || !isInsideRadius(pos)) {
-        updateStatus("❌ Di luar jangkauan sekolah", Colors.red);
-        restartCamera();
+      final pos = await _getLocation();
+      if (pos == null || !_insideRadius(pos)) {
+        updateStatus("❌ Di luar area sekolah", Colors.red);
         return;
       }
 
-      isLoading.value = true;
-      final result = await submitAbsensi(qrUrl);
-      final data = result["body"];
+      final uri = Uri.parse(raw.trim());
+      final token = uri.pathSegments.last;
 
-      if (result["statusCode"] == 200 && data["success"] == true) {
+      final res = await ApiService.submitAbsensi(token);
+      final body = res["body"];
+
+      if (res["statusCode"] == 200 && body["success"] == true) {
         final distance = Geolocator.distanceBetween(
           pos.latitude,
           pos.longitude,
@@ -132,30 +120,23 @@ class ScanController extends GetxController {
           sekolahLng,
         ).round();
 
-        /// 🔥 AMBIL ALAMAT ASLI
-        final address = await getAddressFromPosition(pos);
+        final address = await _getAddress(pos);
 
         updateStatus(
-          "✅ Absen berhasil\n"
-          "📍 $address\n"
-          "📏 Jarak: ${distance} meter",
+          "✅ Absen berhasil\n📍 $address\n📏 $distance meter",
           Colors.green,
         );
 
-        final homeC = Get.find<HomeController>();
-        await homeC.refreshStatus();
+        await Get.find<HomeController>().refreshStatus();
       } else {
-        updateStatus(data["message"] ?? "❌ Gagal absen", Colors.red);
+        updateStatus(body["message"] ?? "❌ Gagal absen", Colors.red);
       }
+    } catch (e) {
+      updateStatus("❌ Terjadi kesalahan", Colors.red);
     } finally {
       isLoading.value = false;
-      restartCamera();
+      await Future.delayed(const Duration(milliseconds: 800));
+      isScanning.value = true;
     }
-  }
-
-  Future<void> restartCamera() async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    await camera?.start();
-    isScanning.value = true;
   }
 }
